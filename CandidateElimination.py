@@ -1,86 +1,85 @@
-# Candidate Elimination Algorithm in Python
+import pandas as pd
+import numpy as np
 
-def more_general_or_equal(h1, h2):
-    """Check if hypothesis h1 is more general than or equal to h2"""
-    more_general_parts = []
-    for x, y in zip(h1, h2):
-        mg = x == "?" or (x != "∅" and (x == y))
-        more_general_parts.append(mg)
-    return all(more_general_parts)
+data = [
+    ['Technical', 'Senior', 'excellent', 'good', 'urban', 'yes'],
+    ['Technical', 'Junior', 'excellent', 'good', 'urban', 'yes'],
+    ['Non-Technical', 'Junior', 'average', 'poor', 'rural', 'no'],
+    ['Technical', 'Senior', 'average', 'good', 'rural', 'no'],
+    ['Technical', 'Senior', 'excellent', 'good', 'rural', 'yes']
+]
 
+columns = ['Role', 'Experience', 'Performance', 'InternetQuality', 'WorkLocation', 'Output']
 
-def generalize_S(example, S):
-    S_new = list(S)
-    for i in range(len(S)):
-        if S[i] != example[i]:
-            S_new[i] = "?"
-    return tuple(S_new)
+df = pd.DataFrame(data, columns=columns)
 
 
-def specialize_G(hypothesis, example):
-    specializations = []
-    for i in range(len(hypothesis)):
-        if hypothesis[i] == "?":
-            if example[i] != "∅":
-                new_hypothesis = list(hypothesis)
-                new_hypothesis[i] = example[i]
-                specializations.append(tuple(new_hypothesis))
-    return specializations
+X = np.array(df.iloc[:, :-1])
+y = np.array(df.iloc[:, -1])
 
 
-def candidate_elimination(data):
-    # Initialize S and G
-    S = list(data[0][0])  # first positive example
-    G = [("?",) * len(S)]
+def is_consistent(hypothesis, example):
+    return all(h == '?' or h == e for h, e in zip(hypothesis, example))
 
-    print("Initial S:", S)
-    print("Initial G:", G)
-    print("----------------------------------")
 
-    for example, label in data:
-        print("Training Example:", example, "Label:", label)
+def more_general(h1, h2):
+    return all(h1[i] == '?' or h1[i] == h2[i] for i in range(len(h1)))
 
-        if label == "Yes":  # Positive Example
-            # Remove inconsistent hypotheses from G
-            G = [g for g in G if more_general_or_equal(g, example)]
-            # Generalize S
-            S = generalize_S(example, S)
 
-        else:  # Negative Example
-            # Specialize G
+def candidate_elimination(X, y):
+    n = X.shape[1]
+
+
+    S = X[y == 'yes'][0].copy()
+    G = [['?' for _ in range(n)]]
+
+    for i in range(len(X)):
+        if y[i] == 'yes':
+
+            for j in range(n):
+                if S[j] != X[i][j]:
+                    S[j] = '?'
+
+
+            G = [g for g in G if is_consistent(g, X[i])]
+
+        else:
             new_G = []
             for g in G:
-                if more_general_or_equal(g, example):
-                    spec = specialize_G(g, example)
-                    for h in spec:
-                        if more_general_or_equal(h, S):
-                            new_G.append(h)
+                if is_consistent(g, X[i]):
+                    for j in range(n):
+                        if S[j] != '?' and S[j] != X[i][j]:
+                            new_h = g.copy()
+                            new_h[j] = S[j]
+                            if new_h not in new_G:
+                                new_G.append(new_h)
                 else:
                     new_G.append(g)
-            G = new_G
 
+
+            G = [
+                h for h in new_G
+                if any(more_general(h, s) for s in [S])
+            ]
+
+
+            G = [
+                h for h in G
+                if not any(
+                    other != h and more_general(other, h)
+                    for other in G
+                )
+            ]
+
+        print(f"\nAfter instance {i+1}:")
         print("S =", S)
         print("G =", G)
-        print("----------------------------------")
 
     return S, G
 
 
-# ----------------- SAMPLE DATASET -----------------
-# Attributes: Weather, Temperature, Humidity, Wind
-# Class: Yes / No
 
-dataset = [
-    (("Sunny", "Hot", "High", "Weak"), "No"),
-    (("Sunny", "Hot", "High", "Strong"), "No"),
-    (("Overcast", "Hot", "High", "Weak"), "Yes"),
-    (("Rain", "Mild", "High", "Weak"), "Yes"),
-    (("Rain", "Cool", "Normal", "Weak"), "Yes"),
+final_S, final_G = candidate_elimination(X, y)
 
-]
-
-# Run Algorithm
-final_S, final_G = candidate_elimination(dataset)
-
-print("Final Specific Hypothesis S =", final_S)
-print("Final General Hypothesis G =", final_G)
+print("\nFinal Specific Hypothesis:", final_S)
+print("Final General Hypothesis:", final_G)
