@@ -1,70 +1,86 @@
+# ================================
+# Principal Component Analysis
+# Online Shoppers Dataset
+# ================================
 
- 
-#Step 1: Import Libraries 
-import numpy as np 
-import pandas as pd 
- 
-#Step 2: Create the Dataset 
-data = { 
-    "Attendance": [85, 90, 88, 92, 80], 
-    "Internal": [78, 82, 79, 85, 75], 
-    "Assignment": [80, 85, 78, 88, 72], 
-    "EndSem": [75, 80, 77, 82, 70] 
-} 
- 
-df = pd.DataFrame(data, index=["S1", "S2", "S3", "S4", "S5"]) 
-print(df) 
- 
-#Step 3: Mean Centering the Data 
-X = df.values 
-mean = np.mean(X, axis=0) 
-X_centered = X - mean 
- 
-print("Mean values:\n", mean) 
-print("Mean-centered data:\n", X_centered) 
- 
-#Step 4: Compute Covariance Matrix using ( X^T X ) 
-n = X_centered.shape[0] 
-cov_matrix = (X_centered.T @ X_centered) / (n - 1) 
- 
-print("Covariance Matrix:\n", cov_matrix) 
- 
-#Step 5: Compute Eigenvalues and Eigenvectors 
-eigenvalues, eigenvectors = np.linalg.eig(cov_matrix) 
- 
-print("Eigenvalues:\n", eigenvalues) 
-print("Eigenvectors:\n", eigenvectors) 
- 
-#Step 6: Select the First Principal Component (PC1) 
-idx = np.argmax(eigenvalues) 
-pc1 = eigenvectors[:, idx] 
- 
-# Normalize 
-pc1 = pc1 / np.linalg.norm(pc1) 
-print("Principal Component 1 (Eigenvector):\n", pc1) 
- 
-#Step 7: Compute PC1 Scores (Projection) 
-pc1_scores = X_centered @ pc1 
- 
-df["PC1_Score"] = pc1_scores 
-print(df) 
- 
-#Step 8: Variance Explained 
-explained_variance = eigenvalues / np.sum(eigenvalues) 
-print("Variance explained by PC1:", explained_variance[idx]) 
- 
-#Step 9: Scree Plot 
-import matplotlib.pyplot as plt 
-import numpy as np 
-# Sort eigenvalues in descending order 
-eigenvalues_sorted = np.sort(eigenvalues)[::-1] 
-# Compute variance ratio 
-variance_ratio = eigenvalues_sorted / np.sum(eigenvalues_sorted) 
-# Scree plot 
-plt.figure() 
-plt.plot(range(1, len(variance_ratio) + 1), variance_ratio, marker='o') 
-plt.xlabel("Principal Component") 
-plt.ylabel("Variance Explained") 
-plt.title("Scree Plot for PCA") 
-plt.grid(True) 
+# Step 1: Import Libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+
+# Step 2: Load Dataset
+df = pd.read_csv("online_shoppers_intention.csv")
+print("Original Dataset:\n", df.head())
+
+# Step 3: Select Only Numerical Columns
+numeric_df = df.select_dtypes(include=['int64', 'float64'])
+
+# Remove target column 'Revenue' if present
+if 'Revenue' in numeric_df.columns:
+    numeric_df = numeric_df.drop('Revenue', axis=1)
+
+X = numeric_df
+print("\nShape of Feature Matrix:", X.shape)
+
+# =====================================
+# -------- MANUAL PCA -----------------
+# =====================================
+
+# Step 4: Standardize Data (Manual)
+mean = X.mean()
+std = X.std()
+Z = (X - mean) / std
+print("\nStandardized Data (Manual):\n", Z.head())
+
+# Step 5: Covariance Matrix
+cov_matrix = np.cov(Z.T)
+print("\nCovariance Matrix:\n", cov_matrix)
+
+# Step 6: Eigenvalues & Eigenvectors
+eigenvalues, eigenvectors = np.linalg.eig(cov_matrix)
+print("\nEigenvalues:\n", eigenvalues)
+
+# Step 7: Sort Eigenvalues in Descending Order
+idx = np.argsort(eigenvalues)[::-1]
+eigenvalues = eigenvalues[idx]
+eigenvectors = eigenvectors[:, idx]
+print("\nSorted Eigenvalues:\n", eigenvalues)
+
+# Step 8: Explained Variance Ratio (Manual)
+explained_variance = eigenvalues / np.sum(eigenvalues)
+print("\nExplained Variance Ratio (Manual):\n", explained_variance)
+
+# Step 9: Project onto First 2 Principal Components
+PCs = eigenvectors[:, :2]
+pca_manual = np.dot(Z, PCs)
+print("\nPCA Result (Manual - First 5 Rows):\n", pca_manual[:5])
+
+# =====================================
+# -------- SKLEARN PCA ---------------
+# =====================================
+
+# Step 10: Standardize using sklearn
+scaler = StandardScaler()
+Z_scaled = scaler.fit_transform(X)
+
+# Step 11: Apply PCA (2 Components)
+pca = PCA(n_components=2)
+pca_result = pca.fit_transform(Z_scaled)
+
+print("\nExplained Variance Ratio (Sklearn):")
+print(pca.explained_variance_ratio_)
+
+print("\nPCA Result (Sklearn - First 5 Rows):\n", pca_result[:5])
+
+# =====================================
+# -------- Visualization --------------
+# =====================================
+
+plt.figure()
+plt.scatter(pca_result[:, 0], pca_result[:, 1])
+plt.xlabel("Principal Component 1")
+plt.ylabel("Principal Component 2")
+plt.title("PCA - Online Shoppers Dataset")
 plt.show()
